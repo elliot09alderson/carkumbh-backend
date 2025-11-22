@@ -40,6 +40,22 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  razorpayOrderId: {
+    type: String,
+    default: null,
+  },
+  razorpayPaymentId: {
+    type: String,
+    default: null,
+  },
+  convenienceFee: {
+    type: Number,
+    default: 0,
+  },
+  totalAmountPaid: {
+    type: Number,
+    default: null,
+  },
 }, {
   timestamps: true,
 });

@@ -1,14 +1,31 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
 import configureCloudinary from './config/cloudinary.js';
 import authRoutes from './routes/auth.js';
 import bookingRoutes from './routes/bookings.js';
+import paymentRoutes from './routes/payments.js';
 
 dotenv.config();
 
 const app = express();
+
+// Rate limiting - prevent spam/abuse
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes per IP
+  message: { message: 'Too many requests, please try again later.' },
+});
+
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 payment attempts per 15 minutes per IP
+  message: { message: 'Too many payment attempts, please try again later.' },
+});
+
+app.use(generalLimiter);
 
 // Connect to Database
 connectDB();
@@ -49,6 +66,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/payments', paymentLimiter, paymentRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
