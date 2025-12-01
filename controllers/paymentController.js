@@ -2,11 +2,10 @@ import crypto from 'crypto';
 import razorpay from '../config/razorpay.js';
 import Booking from '../models/Booking.js';
 
-// Calculate convenience fee (2% MDR + 18% GST on MDR)
-const calculateConvenienceFee = (baseAmount) => {
-  const mdr = baseAmount * 0.02; // 2% MDR
-  const gst = mdr * 0.18; // 18% GST on MDR
-  return Math.round(mdr + gst); // Round to nearest rupee
+// Calculate GST (18% on base amount)
+const calculateGST = (baseAmount) => {
+  const gst = baseAmount * 0.18; // 18% GST
+  return Math.round(gst); // Round to nearest rupee
 };
 
 // Generate unique 6-character token
@@ -37,8 +36,8 @@ export const createOrder = async (req, res) => {
     }
 
     const baseAmount = parseInt(packageAmount);
-    const convenienceFee = calculateConvenienceFee(baseAmount);
-    const totalAmount = baseAmount + convenienceFee;
+    const gstAmount = calculateGST(baseAmount);
+    const totalAmount = baseAmount + gstAmount;
 
     // Create Razorpay order
     const options = {
@@ -51,7 +50,7 @@ export const createOrder = async (req, res) => {
         address,
         package: packageAmount,
         baseAmount: baseAmount.toString(),
-        convenienceFee: convenienceFee.toString(),
+        gstAmount: gstAmount.toString(),
       },
     };
 
@@ -63,7 +62,7 @@ export const createOrder = async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       baseAmount,
-      convenienceFee,
+      gstAmount,
       totalAmount,
     });
   } catch (error) {
@@ -116,8 +115,8 @@ export const verifyPayment = async (req, res) => {
 
     // Calculate amounts for storage
     const baseAmount = parseInt(packageAmount);
-    const convenienceFee = calculateConvenienceFee(baseAmount);
-    const totalAmount = baseAmount + convenienceFee;
+    const gstAmount = calculateGST(baseAmount);
+    const totalAmount = baseAmount + gstAmount;
 
     // Create booking
     const booking = await Booking.create({
@@ -130,7 +129,7 @@ export const verifyPayment = async (req, res) => {
       isPaid: true,
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
-      convenienceFee,
+      gstAmount,
       totalAmountPaid: totalAmount,
     });
 
@@ -158,16 +157,15 @@ export const getPriceBreakdown = async (req, res) => {
     }
 
     const baseAmount = parseInt(packageAmount);
-    const convenienceFee = calculateConvenienceFee(baseAmount);
-    const totalAmount = baseAmount + convenienceFee;
+    const gstAmount = calculateGST(baseAmount);
+    const totalAmount = baseAmount + gstAmount;
 
     res.status(200).json({
       baseAmount,
-      convenienceFee,
+      gstAmount,
       totalAmount,
       breakdown: {
-        mdr: Math.round(baseAmount * 0.02),
-        gst: Math.round(baseAmount * 0.02 * 0.18),
+        gst: gstAmount,
       },
     });
   } catch (error) {
