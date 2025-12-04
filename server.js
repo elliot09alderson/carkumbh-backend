@@ -7,6 +7,7 @@ import configureCloudinary from './config/cloudinary.js';
 import authRoutes from './routes/auth.js';
 import bookingRoutes from './routes/bookings.js';
 import paymentRoutes from './routes/payments.js';
+import siteConfigRoutes from './routes/siteConfigRoutes.js';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ configureCloudinary();
 const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173',
+  "http://localhost:8081",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -67,6 +69,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentLimiter, paymentRoutes);
+app.use('/api/config', siteConfigRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
