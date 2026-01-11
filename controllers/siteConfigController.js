@@ -132,3 +132,48 @@ export const updateWorkshopContent = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Get event packages
+// @route   GET /api/config/event-packages
+// @access  Public
+export const getEventPackages = async (req, res) => {
+  console.log("GET /api/config/event-packages hit");
+  try {
+    const config = await SiteConfig.findOne({ key: 'event_packages' });
+    if (config) {
+      res.json(config.value);
+    } else {
+      // Default packages as requested by user
+      res.json([
+        { id: '1', name: 'VIP', price: '10000', duration: '1 Year', onlineSessions: '48', liveSessions: '1' },
+        { id: '2', name: 'Standard', price: '999', duration: '1 Month', onlineSessions: '4', liveSessions: '1' },
+        { id: '3', name: 'Premium', price: '500', duration: '1 Week', onlineSessions: '1', liveSessions: '1' },
+      ]);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update event packages
+// @route   POST /api/config/event-packages
+// @access  Private/Admin
+export const updateEventPackages = async (req, res) => {
+  try {
+    const { packages } = req.body;
+
+    if (!Array.isArray(packages)) {
+      return res.status(400).json({ message: 'Packages must be an array' });
+    }
+
+    const config = await SiteConfig.findOneAndUpdate(
+      { key: 'event_packages' },
+      { value: packages },
+      { new: true, upsert: true }
+    );
+
+    res.json(config.value);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

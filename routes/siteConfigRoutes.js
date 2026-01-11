@@ -5,7 +5,9 @@ import {
   getWorkshopBanner, 
   updateWorkshopBanner,
   getWorkshopContent,
-  updateWorkshopContent 
+  updateWorkshopContent,
+  getEventPackages,
+  updateEventPackages
 } from '../controllers/siteConfigController.js';
 import { protect } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -23,6 +25,10 @@ router.post('/workshop-banner', protect, upload.single('banner'), updateWorkshop
 // Workshop content
 router.get('/workshop-content', getWorkshopContent);
 router.post('/workshop-content', protect, updateWorkshopContent);
+
+// Event packages
+router.get('/event-packages', getEventPackages);
+router.post('/event-packages', protect, updateEventPackages);
 
 export default router;
 

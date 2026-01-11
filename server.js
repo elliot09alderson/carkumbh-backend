@@ -8,6 +8,8 @@ import authRoutes from './routes/auth.js';
 import bookingRoutes from './routes/bookings.js';
 import paymentRoutes from './routes/payments.js';
 import siteConfigRoutes from './routes/siteConfigRoutes.js';
+import studentRoutes from './routes/students.js';
+import { getEventPackages } from './controllers/siteConfigController.js';
 
 dotenv.config();
 
@@ -70,6 +72,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentLimiter, paymentRoutes);
 app.use('/api/config', siteConfigRoutes);
+app.use('/api/students', studentRoutes);
+app.get('/api/event-packages', getEventPackages);
 
 // Health check route
 app.get('/api/health', (req, res) => {
