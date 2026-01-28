@@ -107,17 +107,30 @@ export const verifyPayment = async (req, res) => {
 
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.log('Missing verification data:', { razorpay_order_id, razorpay_payment_id, razorpay_signature });
       return res.status(400).json({ message: 'Payment verification data missing' });
     }
 
     // Verify signature
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    console.log('Verification attempt:');
+    console.log('- Order ID:', razorpay_order_id);
+    console.log('- Payment ID:', razorpay_payment_id);
+    console.log('- Secret length:', secret ? secret.length : 'undefined');
+    console.log('- Secret first 4 chars:', secret ? secret.substring(0, 4) : 'undefined');
+    
     const body = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', secret)
       .update(body.toString())
       .digest('hex');
 
+    console.log('- Expected signature:', expectedSignature);
+    console.log('- Received signature:', razorpay_signature);
+    console.log('- Signatures match:', expectedSignature === razorpay_signature);
+
     if (expectedSignature !== razorpay_signature) {
+      console.log('SIGNATURE MISMATCH - Check RAZORPAY_KEY_SECRET');
       return res.status(400).json({ message: 'Payment verification failed' });
     }
 
