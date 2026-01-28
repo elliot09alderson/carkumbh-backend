@@ -21,7 +21,7 @@ const bookingSchema = new mongoose.Schema({
   package: {
     type: String,
     required: true,
-    enum: ['499', '999'],
+    // Removed enum to allow dynamic packages from admin config
   },
   paymentMode: {
     type: String,
