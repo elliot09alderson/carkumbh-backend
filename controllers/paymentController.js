@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import razorpay from '../config/razorpay.js';
 import Booking from '../models/Booking.js';
+import SiteConfig from '../models/SiteConfig.js';
 
 // Calculate GST (18% on base amount)
 const calculateGST = (baseAmount) => {
@@ -18,6 +19,21 @@ const generateToken = () => {
   return token;
 };
 
+// Helper function to get valid package prices from database
+const getValidPackagePrices = async () => {
+  try {
+    const config = await SiteConfig.findOne({ key: 'event_packages' });
+    if (config && Array.isArray(config.value)) {
+      return config.value.map(pkg => pkg.price);
+    }
+    // Default packages if none in database
+    return ['10000', '999', '500'];
+  } catch (error) {
+    console.error('Error fetching packages:', error);
+    return ['10000', '999', '500'];
+  }
+};
+
 // @desc    Create Razorpay order
 // @route   POST /api/payments/create-order
 // @access  Public
@@ -30,9 +46,12 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
+    // Get valid packages from database
+    const validPackages = await getValidPackagePrices();
+    
     // Validate package
-    if (!['499', '999'].includes(packageAmount)) {
-      return res.status(400).json({ message: 'Invalid package selected' });
+    if (!validPackages.includes(packageAmount)) {
+      return res.status(400).json({ message: `Invalid package selected. Valid packages: ₹${validPackages.join(', ₹')}` });
     }
 
     const baseAmount = parseInt(packageAmount);
@@ -152,7 +171,10 @@ export const getPriceBreakdown = async (req, res) => {
   try {
     const { package: packageAmount } = req.params;
 
-    if (!['499', '999'].includes(packageAmount)) {
+    // Get valid packages from database
+    const validPackages = await getValidPackagePrices();
+
+    if (!validPackages.includes(packageAmount)) {
       return res.status(400).json({ message: 'Invalid package' });
     }
 
@@ -173,3 +195,4 @@ export const getPriceBreakdown = async (req, res) => {
     res.status(500).json({ message: 'Failed to get price breakdown' });
   }
 };
+
