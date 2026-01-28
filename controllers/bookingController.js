@@ -139,10 +139,65 @@ const deleteBooking = async (req, res) => {
   }
 };
 
+// @desc    Delete all bookings
+// @route   DELETE /api/bookings
+// @access  Private (Admin only)
+const deleteAllBookings = async (req, res) => {
+  try {
+    // Get all bookings with screenshots to delete from Cloudinary
+    const bookingsWithScreenshots = await Booking.find({ screenshotPublicId: { $ne: null } });
+    
+    // Delete screenshots from Cloudinary
+    for (const booking of bookingsWithScreenshots) {
+      try {
+        await cloudinary.uploader.destroy(booking.screenshotPublicId);
+      } catch (cloudinaryError) {
+        console.error('Error deleting from Cloudinary:', cloudinaryError);
+      }
+    }
+
+    const result = await Booking.deleteMany({});
+    res.json({ message: `${result.deletedCount} bookings deleted` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete bookings by package
+// @route   DELETE /api/bookings/by-package/:packageType
+// @access  Private (Admin only)
+const deleteBookingsByPackage = async (req, res) => {
+  try {
+    const { packageType } = req.params;
+    
+    // Get bookings with screenshots to delete from Cloudinary
+    const bookingsWithScreenshots = await Booking.find({ 
+      package: packageType, 
+      screenshotPublicId: { $ne: null } 
+    });
+    
+    // Delete screenshots from Cloudinary
+    for (const booking of bookingsWithScreenshots) {
+      try {
+        await cloudinary.uploader.destroy(booking.screenshotPublicId);
+      } catch (cloudinaryError) {
+        console.error('Error deleting from Cloudinary:', cloudinaryError);
+      }
+    }
+
+    const result = await Booking.deleteMany({ package: packageType });
+    res.json({ message: `${result.deletedCount} bookings with package ₹${packageType} deleted` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   createBooking,
   getAllBookings,
   getBookingById,
   togglePaidStatus,
   deleteBooking,
+  deleteAllBookings,
+  deleteBookingsByPackage,
 };
