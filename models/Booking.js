@@ -56,6 +56,20 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  isScanned: {
+    type: Boolean,
+    default: false,
+  },
+  /** Set once when ticket is scanned at entry; duplicate scans are rejected */
+  scannedAt: {
+    type: Date,
+    default: null,
+  },
+  scannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null,
+  },
 }, {
   timestamps: true,
 });

@@ -61,7 +61,15 @@ const createBooking = async (req, res) => {
 
 const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({}).sort({ createdAt: -1 });
+    const { status, search } = req.query;
+    const filter = {};
+    if (status === 'pending') filter.isScanned = { $ne: true };
+    if (status === 'scanned') filter.isScanned = true;
+    if (search) {
+      const re = new RegExp(search, 'i');
+      filter.$or = [{ name: re }, { number: re }, { token: re }];
+    }
+    const bookings = await Booking.find(filter).sort({ createdAt: -1 });
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -166,21 +174,24 @@ const scanTicket = async (req, res) => {
     const booking = await Booking.findOne({ token: token.trim().toUpperCase() });
 
     if (!booking) {
-      return res.status(404).json({ message: 'Invalid ticket — booking not found' });
+      return res.status(404).json({ message: 'Invalid ticket — booking not found', code: 'NOT_FOUND' });
     }
 
     if (!booking.isPaid) {
-      return res.status(402).json({ 
+      return res.status(402).json({
         message: 'Payment pending — entry not allowed',
-        booking: { name: booking.name, package: booking.package, token: booking.token }
+        code: 'UNPAID',
+        booking: { _id: booking._id, name: booking.name, package: booking.package, token: booking.token, number: booking.number, address: booking.address, paymentMode: booking.paymentMode, isPaid: booking.isPaid, scannedAt: booking.scannedAt, createdAt: booking.createdAt, updatedAt: booking.updatedAt }
       });
     }
 
     if (booking.isScanned) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         message: 'Ticket already used',
+        code: 'ALREADY_SCANNED',
+        duplicate: true,
         scannedAt: booking.scannedAt,
-        booking: { name: booking.name, package: booking.package, token: booking.token, number: booking.number }
+        booking: { _id: booking._id, name: booking.name, package: booking.package, token: booking.token, number: booking.number, address: booking.address, paymentMode: booking.paymentMode, isPaid: booking.isPaid, scannedAt: booking.scannedAt, createdAt: booking.createdAt, updatedAt: booking.updatedAt }
       });
     }
 
@@ -190,13 +201,20 @@ const scanTicket = async (req, res) => {
 
     res.json({
       message: 'Entry granted',
+      duplicate: false,
       booking: {
+        _id: booking._id,
         name: booking.name,
         number: booking.number,
+        address: booking.address,
         package: booking.package,
         token: booking.token,
         paymentMode: booking.paymentMode,
         isPaid: booking.isPaid,
+        isScanned: booking.isScanned,
+        scannedAt: booking.scannedAt,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
       }
     });
   } catch (error) {
