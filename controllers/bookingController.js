@@ -12,9 +12,6 @@ const generateToken = () => {
   return result;
 };
 
-// @desc    Create new booking
-// @route   POST /api/bookings
-// @access  Public
 const createBooking = async (req, res) => {
   try {
     const { name, number, address, package: packageType, paymentMode } = req.body;
@@ -26,7 +23,6 @@ const createBooking = async (req, res) => {
     let screenshotUrl = null;
     let screenshotPublicId = null;
 
-    // If online payment, upload screenshot to Cloudinary
     if (paymentMode === 'online' && req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
@@ -37,7 +33,6 @@ const createBooking = async (req, res) => {
       }
     }
 
-    // Generate unique token
     let token = generateToken();
     let tokenExists = await Booking.findOne({ token });
 
@@ -64,9 +59,6 @@ const createBooking = async (req, res) => {
   }
 };
 
-// @desc    Get all bookings
-// @route   GET /api/bookings
-// @access  Private (Admin only)
 const getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({}).sort({ createdAt: -1 });
@@ -76,13 +68,9 @@ const getAllBookings = async (req, res) => {
   }
 };
 
-// @desc    Get single booking by ID
-// @route   GET /api/bookings/:id
-// @access  Private (Admin only)
 const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-
     if (booking) {
       res.json(booking);
     } else {
@@ -93,13 +81,9 @@ const getBookingById = async (req, res) => {
   }
 };
 
-// @desc    Toggle paid status
-// @route   PATCH /api/bookings/:id/toggle-paid
-// @access  Private (Admin only)
 const togglePaidStatus = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-
     if (booking) {
       booking.isPaid = !booking.isPaid;
       const updatedBooking = await booking.save();
@@ -112,15 +96,10 @@ const togglePaidStatus = async (req, res) => {
   }
 };
 
-// @desc    Delete booking
-// @route   DELETE /api/bookings/:id
-// @access  Private (Admin only)
 const deleteBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-
     if (booking) {
-      // Delete screenshot from Cloudinary if exists
       if (booking.screenshotPublicId) {
         try {
           await cloudinary.uploader.destroy(booking.screenshotPublicId);
@@ -128,7 +107,6 @@ const deleteBooking = async (req, res) => {
           console.error('Error deleting from Cloudinary:', cloudinaryError);
         }
       }
-
       await Booking.deleteOne({ _id: req.params.id });
       res.json({ message: 'Booking removed' });
     } else {
@@ -139,15 +117,9 @@ const deleteBooking = async (req, res) => {
   }
 };
 
-// @desc    Delete all bookings
-// @route   DELETE /api/bookings
-// @access  Private (Admin only)
 const deleteAllBookings = async (req, res) => {
   try {
-    // Get all bookings with screenshots to delete from Cloudinary
     const bookingsWithScreenshots = await Booking.find({ screenshotPublicId: { $ne: null } });
-    
-    // Delete screenshots from Cloudinary
     for (const booking of bookingsWithScreenshots) {
       try {
         await cloudinary.uploader.destroy(booking.screenshotPublicId);
@@ -155,7 +127,6 @@ const deleteAllBookings = async (req, res) => {
         console.error('Error deleting from Cloudinary:', cloudinaryError);
       }
     }
-
     const result = await Booking.deleteMany({});
     res.json({ message: `${result.deletedCount} bookings deleted` });
   } catch (error) {
@@ -163,20 +134,13 @@ const deleteAllBookings = async (req, res) => {
   }
 };
 
-// @desc    Delete bookings by package
-// @route   DELETE /api/bookings/by-package/:packageType
-// @access  Private (Admin only)
 const deleteBookingsByPackage = async (req, res) => {
   try {
     const { packageType } = req.params;
-    
-    // Get bookings with screenshots to delete from Cloudinary
     const bookingsWithScreenshots = await Booking.find({ 
       package: packageType, 
       screenshotPublicId: { $ne: null } 
     });
-    
-    // Delete screenshots from Cloudinary
     for (const booking of bookingsWithScreenshots) {
       try {
         await cloudinary.uploader.destroy(booking.screenshotPublicId);
@@ -184,7 +148,6 @@ const deleteBookingsByPackage = async (req, res) => {
         console.error('Error deleting from Cloudinary:', cloudinaryError);
       }
     }
-
     const result = await Booking.deleteMany({ package: packageType });
     res.json({ message: `${result.deletedCount} bookings with package ₹${packageType} deleted` });
   } catch (error) {
@@ -192,7 +155,59 @@ const deleteBookingsByPackage = async (req, res) => {
   }
 };
 
+const scanTicket = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: 'Token is required' });
+    }
+
+    const booking = await Booking.findOne({ token: token.trim().toUpperCase() });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Invalid ticket — booking not found' });
+    }
+
+    if (!booking.isPaid) {
+      return res.status(402).json({ 
+        message: 'Payment pending — entry not allowed',
+        booking: { name: booking.name, package: booking.package, token: booking.token }
+      });
+    }
+
+    if (booking.isScanned) {
+      return res.status(409).json({ 
+        message: 'Ticket already used',
+        scannedAt: booking.scannedAt,
+        booking: { name: booking.name, package: booking.package, token: booking.token, number: booking.number }
+      });
+    }
+
+    booking.isScanned = true;
+    booking.scannedAt = new Date();
+    await booking.save();
+
+    res.json({
+      message: 'Entry granted',
+      booking: {
+        name: booking.name,
+        number: booking.number,
+        package: booking.package,
+        token: booking.token,
+        paymentMode: booking.paymentMode,
+        isPaid: booking.isPaid,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export {
+  bulkCreateBookings,
+  getBulkBookings,
+  deleteBulkBookings,
   createBooking,
   getAllBookings,
   getBookingById,
@@ -200,4 +215,71 @@ export {
   deleteBooking,
   deleteAllBookings,
   deleteBookingsByPackage,
+  scanTicket,
+};
+
+const bulkCreateBookings = async (req, res) => {
+  try {
+    const { count, label, packageName } = req.body;
+
+    if (!count || count < 1 || count > 500) {
+      return res.status(400).json({ message: 'Count must be between 1 and 500' });
+    }
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const generateToken = () =>
+      Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+    const bookings = [];
+    const tokens = [];
+    let attempts = 0;
+
+    while (bookings.length < count && attempts < count * 5) {
+      attempts++;
+      const token = generateToken();
+      const exists = await Booking.findOne({ token });
+      if (exists) continue;
+
+      bookings.push({
+        token,
+        name: label || 'Bulk Ticket',
+        number: '0000000000',
+        address: 'Bulk Generated',
+        package: packageName || 'General',
+        paymentMode: 'cash',
+        isPaid: true,
+        isScanned: false,
+      });
+      tokens.push(token);
+    }
+
+    await Booking.insertMany(bookings);
+    res.json({ tokens, count: tokens.length });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getBulkBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ address: 'Bulk Generated' }).sort({ createdAt: -1 });
+    res.json(bookings);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteBulkBookings = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      await Booking.deleteMany({ _id: { $in: ids }, address: 'Bulk Generated' });
+      res.json({ message: `${ids.length} tickets deleted` });
+    } else {
+      const result = await Booking.deleteMany({ address: 'Bulk Generated' });
+      res.json({ message: `${result.deletedCount} tickets deleted` });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
