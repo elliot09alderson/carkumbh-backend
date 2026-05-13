@@ -227,8 +227,8 @@ const bulkCreateBookings = async (req, res) => {
     }
 
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const generateToken = () =>
-      Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const generateBulkToken = () =>
+      Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 
     const bookings = [];
     const tokens = [];
@@ -236,7 +236,7 @@ const bulkCreateBookings = async (req, res) => {
 
     while (bookings.length < count && attempts < count * 5) {
       attempts++;
-      const token = generateToken();
+      const token = generateBulkToken();
       const exists = await Booking.findOne({ token });
       if (exists) continue;
 
